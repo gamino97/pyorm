@@ -7,8 +7,21 @@ authors = [
     { name = "Carlos Gamino", email = "carlos.alfredo55@gmail.com" }
 ]
 requires-python = ">=3.13"
-dependencies = []
-
+dependencies = [
+    "pydantic>=2.12.5",
+]
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+]
 [build-system]
 requires = ["uv_build>=0.9.17,<0.10.0"]
 build-backend = "uv_build"
+
+[tool.mypy]
+plugins = ['pydantic.mypy']
+
+[tool.pydantic-mypy]
+init_typed = true
+
+
