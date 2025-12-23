@@ -75,6 +75,12 @@ class SQLiteBackend:
         logger.debug(sql)
         self.execute(sql, self.cursor)
 
+    def sql_drop_table(self, table_name: str) -> None:
+        logger.info("Dropping table %s", table_name)
+        sql: str = f"DROP TABLE IF EXISTS {table_name}"
+        logger.debug(sql)
+        self.execute(sql, self.cursor)
+
     def get_field_type(self, field: FieldInfo) -> Any:
         annotation = field.annotation
         origin = get_origin(annotation)

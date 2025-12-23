@@ -39,3 +39,7 @@ class Model(BaseModel):
     @classmethod
     def createDb(cls: type[T]) -> None:
         SQLiteBackend().sql_create_db(cls.table_name, cls.__pydantic_fields__)
+
+    @classmethod
+    def drop_model(cls: type[T]) -> None:
+        SQLiteBackend().sql_drop_table(cls.table_name)
