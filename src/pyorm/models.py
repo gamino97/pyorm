@@ -37,5 +37,5 @@ class Model(BaseModel):
         return instances
 
     @classmethod
-    def createDb(cls: type[T]):
+    def createDb(cls: type[T]) -> None:
         SQLiteBackend().sql_create_db(cls.table_name, cls.__pydantic_fields__)

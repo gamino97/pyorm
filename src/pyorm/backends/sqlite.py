@@ -16,6 +16,7 @@ type_affinities = {
     decimal.Decimal: "NUMERIC",
     int: "INTEGER",
     float: "REAL",
+    bool: "INTEGER",
 }
 
 
@@ -111,4 +112,4 @@ class SQLiteBackend:
 
     def __del__(self, *args, **kwargs):
         self.cursor.close()
-        print("Deleting SQLITE BACKEND")
+        self.connection.close()
