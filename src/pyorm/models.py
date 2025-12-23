@@ -9,7 +9,7 @@ T = TypeVar("T", bound="Model")
 
 
 class Model(BaseModel):
-    table_name: ClassVar[str | None] = None
+    table_name: ClassVar[str]
 
     def model_post_init(self, context) -> None:
         self._modified_fields: list[str] = []
@@ -36,5 +36,6 @@ class Model(BaseModel):
         instances = [ModelOptional.model_validate(result) for result in res]
         return instances
 
-    # def __repr__(self):
-    #     return "<%s>" % (self.__class__.__name__)
+    @classmethod
+    def createDb(cls: type[T]):
+        SQLiteBackend().sql_create_db(cls.table_name, cls.__pydantic_fields__)

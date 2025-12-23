@@ -1,22 +1,41 @@
+import decimal
 import logging
 import sqlite3
+import types
+from typing import Any, Union, get_args, get_origin
+
+from pydantic.fields import FieldInfo
+
+UnionType = getattr(types, "UnionType", Union)
+NoneType = type(None)
 
 logger = logging.getLogger("sqlite_backend")
 
+type_affinities = {
+    str: "TEXT",
+    decimal.Decimal: "NUMERIC",
+    int: "INTEGER",
+    float: "REAL",
+}
+
 
 class SQLiteBackend:
+    def __init__(self, *args, **kwargs):
+        self.connection = sqlite3.connect("tutorial.db")
+        self.cursor = self.connection.cursor()
 
-    def execute(self, sql: str, cursor: sqlite3.Cursor, params: dict | list):
+    def execute(
+        self, sql: str, cursor: sqlite3.Cursor, params: dict | list | None = None
+    ):
+        if params is None:
+            params = []
         logger.debug("Executing %s and params %s", sql, params)
         return cursor.execute(sql, params)
 
     def get_many(self, table_name, params: dict, query_fields: list | None = None):
-        con = sqlite3.connect("tutorial.db")
-        cur = con.cursor()
         sql = self.sql_select_build(table_name, params, query_fields)
-        res = self.execute(sql, cur, params)
+        res = self.execute(sql, self.cursor, params)
         rows = res.fetchall()
-        cur.close()
         if query_fields:
             values = []
             for row in rows:
@@ -42,3 +61,54 @@ class SQLiteBackend:
             )
             filter_str = f" WHERE {filters}"
         return f"SELECT {query_fields_str} FROM {table_name}{filter_str}"
+
+    def sql_create_db(self, table_name: str, fields: dict[str, FieldInfo]):
+        logger.debug(f"{table_name=} {fields=}")
+        column_definitions = []
+        for field_name, field in fields.items():
+            column_definition = self.get_column_definition(field_name, field)
+            logger.debug(column_definition)
+            column_definitions.append(column_definition)
+        column_definition_str = ", ".join(column_definitions)
+        sql = f"CREATE TABLE {table_name}({column_definition_str})"
+        logger.debug(sql)
+        self.execute(sql, self.cursor)
+
+    def get_field_type(self, field: FieldInfo) -> Any:
+        annotation = field.annotation
+        origin = get_origin(annotation)
+        if origin is None:
+            return field.annotation
+        if self.is_union_type(origin):
+            args = get_args(annotation)
+            if len(args) > 2:
+                raise ValueError("Cannot have a non-optional union as a column")
+            if args[0] is None or args[0] is NoneType:
+                annotation = args[1]
+            else:
+                annotation = args[0]
+        logger.debug("Type of field annotation %s is %s", field.annotation, annotation)
+        return annotation
+
+    def get_column_definition(self, name: str, field: FieldInfo) -> str:
+        field_type = self.get_field_type(field)
+        type_affinity: str = type_affinities.get(field_type, type_affinities[str])
+        constraints = self.get_column_constraints(field)
+        logger.debug(
+            "Field %s, Field type: %s constraints: %s", name, field_type, constraints
+        )
+        return f"{name} {type_affinity.upper()}{constraints}"
+
+    def get_column_constraints(self, field: FieldInfo) -> str:
+        constraints = ""
+        origin = get_origin(field.annotation)
+        if origin is None or not self.is_union_type(origin):
+            constraints = f"{constraints} NOT NULL"
+        return constraints
+
+    def is_union_type(self, type: type[Any]) -> bool:
+        return type is UnionType or type is Union
+
+    def __del__(self, *args, **kwargs):
+        self.cursor.close()
+        print("Deleting SQLITE BACKEND")
