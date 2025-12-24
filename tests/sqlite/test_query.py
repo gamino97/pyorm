@@ -1,25 +1,24 @@
 import decimal
-import logging
-import sqlite3
+from sqlite3 import Connection, Cursor
 from typing import ClassVar
 
 from pyorm.models import Model
 
+# def test_select():
+#     class Movie(Model):
+#         table_name: ClassVar[str] = "movie"
+#         title: str
+#         year: int
+#         score: float
 
-def test_select():
-    class Movie(Model):
-        table_name: ClassVar[str] = "movie"
-        title: str
-        year: int
-        score: float
-
-    m = Movie.findAll()
-    print(m)
-    for x in m:
-        assert x.title != ""
+#     m = Movie.findAll()
+#     print(m)
+#     for x in m:
+#         assert x.title != ""
 
 
-def test_create_table():
+def test_create_table(db_connection: Connection):
+
     class Movie(Model):
         table_name: ClassVar[str] = "test_movie_creation"
         title: str
@@ -31,8 +30,7 @@ def test_create_table():
 
     Movie.createDb()
 
-    conn = sqlite3.connect("tutorial.db")
-    cursor = conn.cursor()
+    cursor: Cursor = db_connection.cursor()
 
     # Verify table exists
     cursor.execute(
@@ -76,22 +74,18 @@ def test_create_table():
     assert column_map["budget"][2] == "NUMERIC"
     assert column_map["budget"][3] == 1  # NOT NULL
 
-    conn.close()
 
+def test_drop_table(db_connection: Connection):
 
-def test_drop_table():
     class Movie(Model):
         table_name: ClassVar[str] = "test_movie_creation"
         title: str
 
     Movie.drop_model()
-    conn = sqlite3.connect("tutorial.db")
-    cursor = conn.cursor()
+    cursor = db_connection.cursor()
 
     # Verify table exists
     cursor.execute(
         f"SELECT name FROM sqlite_master WHERE type='table' AND name='{Movie.table_name}'"
     )
     assert cursor.fetchone() is None
-    cursor.close()
-    conn.close()

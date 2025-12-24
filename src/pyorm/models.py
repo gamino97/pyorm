@@ -2,7 +2,8 @@ from typing import ClassVar, TypeVar
 
 from pydantic import BaseModel
 
-from .backends.sqlite import SQLiteBackend
+from pyorm.database import Database
+
 from .utils import make_fields_optional
 
 T = TypeVar("T", bound="Model")
@@ -28,7 +29,7 @@ class Model(BaseModel):
     def findAll(cls: type[T], **kwargs) -> list[T]:
         ModelOptional = make_fields_optional(cls)(**kwargs)
         query_fields = list(cls.model_fields.keys())
-        res = SQLiteBackend().get_many(
+        res = Database.get_backend().get_many(
             cls.table_name,
             ModelOptional.model_dump(exclude_unset=True),
             query_fields=query_fields,
@@ -38,8 +39,8 @@ class Model(BaseModel):
 
     @classmethod
     def createDb(cls: type[T]) -> None:
-        SQLiteBackend().sql_create_db(cls.table_name, cls.__pydantic_fields__)
+        Database.get_backend().sql_create_db(cls.table_name, cls.__pydantic_fields__)
 
     @classmethod
     def drop_model(cls: type[T]) -> None:
-        SQLiteBackend().sql_drop_table(cls.table_name)
+        Database.get_backend().sql_drop_table(cls.table_name)

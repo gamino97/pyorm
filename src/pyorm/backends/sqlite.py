@@ -21,8 +21,9 @@ type_affinities = {
 
 
 class SQLiteBackend:
-    def __init__(self, *args, **kwargs):
-        self.connection = sqlite3.connect("tutorial.db")
+    def __init__(self, database_path: str, *args, **kwargs):
+        self.database_path = database_path
+        self.connection = sqlite3.connect(self.database_path)
         self.cursor = self.connection.cursor()
 
     def execute(
@@ -117,5 +118,6 @@ class SQLiteBackend:
         return type is UnionType or type is Union
 
     def __del__(self, *args, **kwargs):
+        logger.debug("Closing connection to SQLite '%s' database", self.database_path)
         self.cursor.close()
         self.connection.close()
