@@ -2,25 +2,16 @@ import decimal
 from sqlite3 import Connection, Cursor
 from typing import ClassVar
 
+from pydantic import Field
+
 from pyorm.models import Model
-
-# def test_select():
-#     class Movie(Model):
-#         table_name: ClassVar[str] = "movie"
-#         title: str
-#         year: int
-#         score: float
-
-#     m = Movie.findAll()
-#     print(m)
-#     for x in m:
-#         assert x.title != ""
 
 
 def test_create_table(db_connection: Connection):
 
     class Movie(Model):
         table_name: ClassVar[str] = "test_movie_creation"
+        id: int = Field(json_schema_extra={"primary_key": True})
         title: str
         year: int
         score: float
@@ -43,6 +34,12 @@ def test_create_table(db_connection: Connection):
     columns = cursor.fetchall()
 
     column_map = {col[1]: col for col in columns}
+
+    # Check 'id' column
+    assert "id" in column_map
+    assert column_map["id"][2] == "INTEGER"
+    assert column_map["id"][3] == 1  # NOT NULL
+    assert column_map["id"][5] == 1 # IS PRIMARY KEY
 
     # Check 'title' column
     assert "title" in column_map

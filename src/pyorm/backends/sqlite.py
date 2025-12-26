@@ -112,6 +112,8 @@ class SQLiteBackend:
         origin = get_origin(field.annotation)
         if origin is None or not self.is_union_type(origin):
             constraints = f"{constraints} NOT NULL"
+        if field.json_schema_extra and field.json_schema_extra.get('primary_key'):
+            constraints = f"{constraints} PRIMARY KEY"
         return constraints
 
     def is_union_type(self, type: type[Any]) -> bool:
