@@ -44,3 +44,6 @@ class Model(BaseModel):
     @classmethod
     def drop_model(cls: type[T]) -> None:
         Database.get_backend().sql_drop_table(cls.table_name)
+
+    def save(self):
+        Database.get_backend().insert_item(self.table_name, self.model_dump())

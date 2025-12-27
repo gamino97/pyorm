@@ -3,7 +3,6 @@ from sqlite3 import Connection, Cursor
 from typing import ClassVar
 
 from pydantic import Field
-
 from pyorm.models import Model
 
 
@@ -38,8 +37,8 @@ def test_create_table(db_connection: Connection):
     # Check 'id' column
     assert "id" in column_map
     assert column_map["id"][2] == "INTEGER"
-    assert column_map["id"][3] == 1  # NOT NULL
-    assert column_map["id"][5] == 1 # IS PRIMARY KEY
+    assert column_map["id"][3] == 0
+    assert column_map["id"][5] == 1  # IS PRIMARY KEY
 
     # Check 'title' column
     assert "title" in column_map
@@ -86,3 +85,23 @@ def test_drop_table(db_connection: Connection):
         f"SELECT name FROM sqlite_master WHERE type='table' AND name='{Movie.table_name}'"
     )
     assert cursor.fetchone() is None
+
+
+def test_select_many(db_connection: Connection):
+    class Movie(Model):
+        table_name: ClassVar[str] = "test_movie_creation"
+        title: str
+        id: int | None = Field(default=None, json_schema_extra={"primary_key": True})
+        year: int
+        score: float
+
+    Movie.createDb()
+    m1 = Movie(title="Hola", year=1997, score=7.8)
+    m1.save()
+    cursor = db_connection.cursor()
+    cursor.execute(f"SELECT title, year, score FROM test_movie_creation")
+    result = cursor.fetchone()
+    title, year, score = result
+    assert title == m1.title
+    assert year == m1.year
+    assert score == m1.score

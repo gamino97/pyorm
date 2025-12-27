@@ -110,14 +110,26 @@ class SQLiteBackend:
     def get_column_constraints(self, field: FieldInfo) -> str:
         constraints = ""
         origin = get_origin(field.annotation)
-        if origin is None or not self.is_union_type(origin):
-            constraints = f"{constraints} NOT NULL"
         if field.json_schema_extra and field.json_schema_extra.get('primary_key'):
             constraints = f"{constraints} PRIMARY KEY"
+        elif origin is None or not self.is_union_type(origin):
+            constraints = f"{constraints} NOT NULL"
         return constraints
 
     def is_union_type(self, type: type[Any]) -> bool:
         return type is UnionType or type is Union
+
+    def insert_item(self, table_name: str, params: dict):
+        sql = self.sql_insert_row(table_name, params.keys(), params)
+        self.execute(sql, self.cursor, params)
+        return
+
+    def sql_insert_row(self, table_name: str, column_names: list[str], data: list[dict[str, Any]]) -> str:
+        column_names_str = ', '.join(column_names)
+        named_placeholders_list = [f":{placeholder}" for placeholder in column_names]
+        named_placeholders = ', '.join(named_placeholders_list)
+        sql: str = f"INSERT INTO {table_name}({column_names_str}) VALUES({named_placeholders})"
+        return sql
 
     def __del__(self, *args, **kwargs):
         logger.debug("Closing connection to SQLite '%s' database", self.database_path)

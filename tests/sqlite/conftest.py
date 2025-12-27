@@ -2,7 +2,6 @@ from sqlite3 import Connection
 from typing import Generator
 
 import pytest
-
 from pyorm.backends.sqlite import SQLiteBackend
 from pyorm.database import Database
 
