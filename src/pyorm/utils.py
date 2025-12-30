@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from pydantic import BaseModel, Field, create_model
+from pydantic.fields import FieldInfo
 
 
 def make_fields_optional[ModelTypeT: type[BaseModel]](
@@ -24,3 +25,8 @@ def make_fields_optional[ModelTypeT: type[BaseModel]](
         __base__=model_cls,
         **new_fields,
     )
+
+
+def is_field_primary_key(field: FieldInfo) -> bool:
+    schema = field.json_schema_extra
+    return bool(schema and isinstance(schema, dict) and schema.get("primary_key"))

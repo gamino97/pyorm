@@ -6,6 +6,8 @@ from typing import Any, Union, get_args, get_origin
 
 from pydantic.fields import FieldInfo
 
+from pyorm.utils import is_field_primary_key
+
 UnionType = getattr(types, "UnionType", Union)
 NoneType = type(None)
 
@@ -110,7 +112,7 @@ class SQLiteBackend:
     def get_column_constraints(self, field: FieldInfo) -> str:
         constraints = ""
         origin = get_origin(field.annotation)
-        if field.json_schema_extra and field.json_schema_extra.get('primary_key'):
+        if is_field_primary_key(field):
             constraints = f"{constraints} PRIMARY KEY"
         elif origin is None or not self.is_union_type(origin):
             constraints = f"{constraints} NOT NULL"
@@ -119,16 +121,18 @@ class SQLiteBackend:
     def is_union_type(self, type: type[Any]) -> bool:
         return type is UnionType or type is Union
 
-    def insert_item(self, table_name: str, params: dict):
-        sql = self.sql_insert_row(table_name, params.keys(), params)
-        self.execute(sql, self.cursor, params)
-        return
+    def insert_item(self, table_name: str, params: dict) -> tuple | None:
+        sql = self.sql_insert_row(table_name, list(params.keys()))
+        res = self.execute(sql, self.cursor, params)
+        return res.fetchone()
 
-    def sql_insert_row(self, table_name: str, column_names: list[str], data: list[dict[str, Any]]) -> str:
-        column_names_str = ', '.join(column_names)
+    def sql_insert_row(self, table_name: str, column_names: list[str]) -> str:
+        column_names_str = ", ".join(column_names)
         named_placeholders_list = [f":{placeholder}" for placeholder in column_names]
-        named_placeholders = ', '.join(named_placeholders_list)
-        sql: str = f"INSERT INTO {table_name}({column_names_str}) VALUES({named_placeholders})"
+        named_placeholders = ", ".join(named_placeholders_list)
+        sql: str = (
+            f"INSERT INTO {table_name}({column_names_str}) VALUES({named_placeholders}) RETURNING {column_names_str}"
+        )
         return sql
 
     def __del__(self, *args, **kwargs):
