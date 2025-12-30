@@ -4,6 +4,7 @@ from typing import Any, ClassVar, TypeVar
 from pydantic import BaseModel
 
 from pyorm.database import Database
+from pyorm.exceptions import DoesNotExist, MultipleObjectsReturned
 from pyorm.utils import is_field_primary_key
 
 from .utils import make_fields_optional
@@ -15,11 +16,17 @@ logger = logging.getLogger("pyorm_model")
 
 class Model(BaseModel):
     table_name: ClassVar[str]
+    DoesNotExist: ClassVar[type[DoesNotExist]] = DoesNotExist
+    MultipleObjectsReturned: ClassVar[type[MultipleObjectsReturned]] = (
+        MultipleObjectsReturned
+    )
 
     def model_post_init(self, context) -> None:
         self._modified_fields: list[str] = []
         if self.table_name is None or len(self.table_name) == 0:
             raise Exception("Table name must be defined")
+        # setattr(self, "DoesNotExist", DoesNotExist)
+        # setattr(self, "MultipleObjectsReturned", MultipleObjectsReturned)
 
     @classmethod
     def get_pk_field_name(cls) -> str:
@@ -47,6 +54,15 @@ class Model(BaseModel):
         )
         instances: list[T] = [cls.model_validate(result) for result in res]
         return instances
+
+    @classmethod
+    def get(cls: type[T], **kwargs) -> T:
+        instances: list[T] = cls.filter(**kwargs)
+        if len(instances) == 1:
+            return instances[0]
+        if not instances:
+            raise DoesNotExist
+        raise MultipleObjectsReturned
 
     @classmethod
     def create_model(cls: type[T]) -> None:

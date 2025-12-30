@@ -2,6 +2,7 @@ import decimal
 from sqlite3 import Connection, Cursor
 from typing import ClassVar
 
+import pytest
 from pydantic import Field
 
 from pyorm.models import Model
@@ -146,3 +147,28 @@ def test_select_many(db_connection: Connection):
     # Test no result
     movies = Movie.filter(score=1.0)
     assert len(movies) == 0
+
+
+def test_get(db_connection: Connection):
+    class Movie(Model):
+        table_name: ClassVar[str] = "test_movie_creation"
+        title: str
+        id: int | None = Field(default=None, json_schema_extra={"primary_key": True})
+        year: int
+        score: float
+
+    Movie.create_model()
+    m1 = Movie(title="Movie 1", year=1997, score=7.8)
+    m1.save()
+    movie = Movie.get(title="Movie 1")
+    assert movie.title == "Movie 1"
+    assert movie.year == 1997
+    assert movie.score == 7.8
+    assert m1.id == movie.id
+    # Test does not exist
+    with pytest.raises(Movie.DoesNotExist):
+        Movie.get(title="No valid movie title")
+    # Test multiple objects returned
+    Movie(title="Movie 2", year=1997, score=9.0).save()
+    with pytest.raises(Movie.MultipleObjectsReturned):
+        Movie.get(year=1997)
