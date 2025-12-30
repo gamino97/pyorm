@@ -20,6 +20,7 @@ class Model(BaseModel):
     MultipleObjectsReturned: ClassVar[type[MultipleObjectsReturned]] = (
         MultipleObjectsReturned
     )
+    _pk_field: ClassVar[str | None] = None
 
     def model_post_init(self, context) -> None:
         self._modified_fields: list[str] = []
@@ -30,9 +31,13 @@ class Model(BaseModel):
 
     @classmethod
     def get_pk_field_name(cls) -> str:
+        if cls._pk_field is not None:
+            return cls._pk_field
         for field_name, field in cls.model_fields.items():
             if is_field_primary_key(field):
+                cls._pk_field = field_name
                 return field_name
+        cls._pk_field = ""
         return ""
 
     def clean_modified_fields(self):
@@ -76,14 +81,13 @@ class Model(BaseModel):
         pk_field_name: str = self.get_pk_field_name()
         if pk_field_name:
             pk: Any | None = getattr(self, pk_field_name, None)
-            model_data: dict[str, Any] = self.model_dump()
+            model_data: dict[str, Any] = self.model_dump(exclude_computed_fields=True)
             if pk is None:
                 res: tuple[Any] | None = Database.get_backend().insert_item(
                     self.table_name, model_data
                 )
                 if res is not None:
                     for attribute, value in zip(model_data.keys(), res):
-                        print(f"attribute {attribute}, value: {value}")
                         setattr(self, attribute, value)
                     self.clean_modified_fields()
                 else:

@@ -24,6 +24,7 @@ type_affinities = {
 
 class SQLiteBackend:
     def __init__(self, database_path: str, *args, **kwargs):
+        logger.debug("Initializing SQLiteBackend in %s", database_path)
         self.database_path = database_path
         self.connection = sqlite3.connect(self.database_path)
         self.cursor = self.connection.cursor()
@@ -128,7 +129,7 @@ class SQLiteBackend:
 
     def sql_insert_row(self, table_name: str, column_names: list[str]) -> str:
         column_names_str = ", ".join(column_names)
-        named_placeholders_list = [f":{placeholder}" for placeholder in column_names]
+        named_placeholders_list = (f":{placeholder}" for placeholder in column_names)
         named_placeholders = ", ".join(named_placeholders_list)
         sql: str = (
             f"INSERT INTO {table_name}({column_names_str}) VALUES({named_placeholders}) RETURNING {column_names_str}"
