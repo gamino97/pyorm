@@ -117,7 +117,7 @@ def test_insert_table(db_connection: Connection):
     assert score == m1.score
 
 
-def no_test_select_many(db_connection: Connection):
+def test_select_many(db_connection: Connection):
     class Movie(Model):
         table_name: ClassVar[str] = "test_movie_creation"
         title: str
@@ -128,10 +128,12 @@ def no_test_select_many(db_connection: Connection):
     Movie.createDb()
     m1 = Movie(title="Hola", year=1997, score=7.8)
     m1.save()
-    cursor = db_connection.cursor()
-    cursor.execute("SELECT title, year, score FROM test_movie_creation")
-    result = cursor.fetchone()
-    title, year, score = result
-    assert title == m1.title
-    assert year == m1.year
-    assert score == m1.score
+    movies = Movie.filter(title="Hola")
+    assert isinstance(movies, list)
+    assert len(movies) == 1
+    movie = movies[0]
+    assert isinstance(movie, Movie)
+    assert movie.id == m1.id
+    assert movie.title == "Hola"
+    assert movie.year == 1997
+    assert movie.score == 7.8

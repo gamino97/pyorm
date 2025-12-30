@@ -37,7 +37,7 @@ class Model(BaseModel):
             self._modified_fields.append(name)
 
     @classmethod
-    def findAll(cls: type[T], **kwargs) -> list[T]:
+    def filter(cls: type[T], **kwargs) -> list[T]:
         ModelOptional: T = make_fields_optional(cls)(**kwargs)
         query_fields = list(cls.model_fields.keys())
         res = Database.get_backend().get_many(
@@ -45,7 +45,7 @@ class Model(BaseModel):
             ModelOptional.model_dump(exclude_unset=True),
             query_fields=query_fields,
         )
-        instances = [ModelOptional.model_validate(result) for result in res]
+        instances: list[T] = [cls.model_validate(result) for result in res]
         return instances
 
     @classmethod
