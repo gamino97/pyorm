@@ -49,7 +49,7 @@ class Model(BaseModel):
         return instances
 
     @classmethod
-    def createDb(cls: type[T]) -> None:
+    def create_model(cls: type[T]) -> None:
         Database.get_backend().sql_create_db(cls.table_name, cls.__pydantic_fields__)
 
     @classmethod

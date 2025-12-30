@@ -19,7 +19,7 @@ def test_create_table(db_connection: Connection):
         description: str | None = None
         budget: decimal.Decimal
 
-    Movie.createDb()
+    Movie.create_model()
 
     cursor: Cursor = db_connection.cursor()
 
@@ -98,7 +98,7 @@ def test_insert_table(db_connection: Connection):
         year: int
         score: float
 
-    Movie.createDb()
+    Movie.create_model()
     m1 = Movie(title="Hola", year=1997, score=7.8)
     m1.save()
     assert m1.title == "Hola"
@@ -125,15 +125,24 @@ def test_select_many(db_connection: Connection):
         year: int
         score: float
 
-    Movie.createDb()
-    m1 = Movie(title="Hola", year=1997, score=7.8)
+    Movie.create_model()
+    m1 = Movie(title="Movie 1", year=1997, score=7.8)
     m1.save()
-    movies = Movie.filter(title="Hola")
+    movies = Movie.filter(title="Movie 1")
     assert isinstance(movies, list)
     assert len(movies) == 1
     movie = movies[0]
     assert isinstance(movie, Movie)
     assert movie.id == m1.id
-    assert movie.title == "Hola"
+    assert movie.title == "Movie 1"
     assert movie.year == 1997
     assert movie.score == 7.8
+    # Test multiple results
+    Movie(title="Movie 2", year=1997, score=8.0).save()
+    Movie(title="Movie 3", year=1996, score=7.8).save()
+    Movie(title="Movie 4", year=1979, score=6.5).save()
+    movies = Movie.filter(year=1997)
+    assert len(movies) == 2
+    # Test no result
+    movies = Movie.filter(score=1.0)
+    assert len(movies) == 0
