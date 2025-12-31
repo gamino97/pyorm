@@ -238,12 +238,41 @@ def test_update(db_connection: Connection):
         id: int | None = Field(default=None, json_schema_extra={"primary_key": True})
         year: int
         score: float
+        is_published: bool
+        description: str | None = None
+        budget: decimal.Decimal
 
     Movie.create_model()
-    m1 = Movie(title="Movie 1", year=1997, score=7.8)
+    m1 = Movie(
+        title="Movie 1",
+        year=1997,
+        score=7.8,
+        is_published=True,
+        budget=decimal.Decimal("500.01"),
+    )
     m1.save()
+    m1_id = m1.id
     m1.title = "New Movie title"
     m1.save()
+    m1 = Movie.get(id=m1_id)
     assert m1.title == "New Movie title"
-    m1 = Movie.get(title="New Movie title")
-    assert m1.title == "New Movie title"
+    m1.year = 1800
+    m1.save()
+    m1 = Movie.get(id=m1_id)
+    assert m1.year == 1800
+    m1.score = 7
+    m1.save()
+    m1 = Movie.get(id=m1_id)
+    assert m1.score == 7.0
+    m1.description = "New description"
+    m1.save()
+    m1 = Movie.get(id=m1_id)
+    assert m1.description == "New description"
+    m1.budget = decimal.Decimal(900.09)
+    m1.save()
+    m1 = Movie.get(id=m1_id)
+    assert m1.budget == decimal.Decimal("900.09")
+    m1.is_published = False
+    m1.save()
+    m1 = Movie.get(id=m1_id)
+    assert m1.is_published is False
