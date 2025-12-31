@@ -98,24 +98,51 @@ def test_insert_table(db_connection: Connection):
         id: int | None = Field(default=None, json_schema_extra={"primary_key": True})
         year: int
         score: float
+        is_published: bool
+        description: str | None = None
+        budget: decimal.Decimal
 
     Movie.create_model()
-    m1 = Movie(title="Hola", year=1997, score=7.8)
+    m1 = Movie(
+        title="Movie title 1",
+        year=1997,
+        score=7.8,
+        is_published=True,
+        budget=decimal.Decimal("500"),
+    )
     m1.save()
-    assert m1.title == "Hola"
+    assert m1.title == "Movie title 1"
     assert m1.year == 1997
     assert m1.score == 7.8
     assert m1.id is not None
+    assert m1.budget == decimal.Decimal("500")
     cursor = db_connection.cursor()
     cursor.execute(
-        "SELECT id, title, year, score FROM test_movie_creation where id = ?", (m1.id,)
+        "SELECT id, title, year, score, is_published FROM test_movie_creation where id = ?",
+        (m1.id,),
     )
     result = cursor.fetchone()
-    id, title, year, score = result
+    id, title, year, score, is_published = result
     assert id == m1.id
     assert title == m1.title
     assert year == m1.year
     assert score == m1.score
+    assert is_published == 1
+    m2 = Movie(
+        title="Movie title 2",
+        year=1997,
+        score=7.8,
+        is_published=False,
+        budget=decimal.Decimal("500"),
+    )
+    m2.save()
+    cursor.execute(
+        "SELECT id, title, year, score, is_published FROM test_movie_creation where id = ?",
+        (m2.id,),
+    )
+    result = cursor.fetchone()
+    id, title, year, score, is_published = result
+    assert is_published == 0
 
 
 def test_select_many(db_connection: Connection):
@@ -125,9 +152,18 @@ def test_select_many(db_connection: Connection):
         id: int | None = Field(default=None, json_schema_extra={"primary_key": True})
         year: int
         score: float
+        is_published: bool
+        description: str | None = None
+        budget: decimal.Decimal
 
     Movie.create_model()
-    m1 = Movie(title="Movie 1", year=1997, score=7.8)
+    m1 = Movie(
+        title="Movie 1",
+        year=1997,
+        score=7.8,
+        is_published=True,
+        budget=decimal.Decimal("500"),
+    )
     m1.save()
     movies = Movie.filter(title="Movie 1")
     assert isinstance(movies, list)
@@ -138,10 +174,31 @@ def test_select_many(db_connection: Connection):
     assert movie.title == "Movie 1"
     assert movie.year == 1997
     assert movie.score == 7.8
+    assert movie.is_published is True
+    assert movie.budget == decimal.Decimal("500")
+    assert movie.description is None
     # Test multiple results
-    Movie(title="Movie 2", year=1997, score=8.0).save()
-    Movie(title="Movie 3", year=1996, score=7.8).save()
-    Movie(title="Movie 4", year=1979, score=6.5).save()
+    Movie(
+        title="Movie 2",
+        year=1997,
+        score=8.0,
+        is_published=True,
+        budget=decimal.Decimal("500"),
+    ).save()
+    Movie(
+        title="Movie 3",
+        year=1996,
+        score=7.8,
+        is_published=True,
+        budget=decimal.Decimal("500"),
+    ).save()
+    Movie(
+        title="Movie 4",
+        year=1979,
+        score=6.5,
+        is_published=True,
+        budget=decimal.Decimal("500"),
+    ).save()
     movies = Movie.filter(year=1997)
     assert len(movies) == 2
     # Test no result
@@ -172,3 +229,21 @@ def test_get(db_connection: Connection):
     Movie(title="Movie 2", year=1997, score=9.0).save()
     with pytest.raises(Movie.MultipleObjectsReturned):
         Movie.get(year=1997)
+
+
+def test_update(db_connection: Connection):
+    class Movie(Model):
+        table_name: ClassVar[str] = "test_movie_creation"
+        title: str
+        id: int | None = Field(default=None, json_schema_extra={"primary_key": True})
+        year: int
+        score: float
+
+    Movie.create_model()
+    m1 = Movie(title="Movie 1", year=1997, score=7.8)
+    m1.save()
+    m1.title = "New Movie title"
+    m1.save()
+    assert m1.title == "New Movie title"
+    m1 = Movie.get(title="New Movie title")
+    assert m1.title == "New Movie title"

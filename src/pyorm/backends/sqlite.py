@@ -39,8 +39,9 @@ class SQLiteBackend:
 
     def get_many(self, table_name, params: dict, query_fields: list | None = None):
         sql = self.sql_select_build(table_name, params, query_fields)
-        res = self.execute(sql, self.cursor, params)
-        rows = res.fetchall()
+        with self.connection:
+            res = self.execute(sql, self.cursor, params)
+            rows = res.fetchall()
         if query_fields:
             values = []
             for row in rows:
@@ -72,18 +73,17 @@ class SQLiteBackend:
         column_definitions = []
         for field_name, field in fields.items():
             column_definition = self.get_column_definition(field_name, field)
-            logger.debug(column_definition)
             column_definitions.append(column_definition)
         column_definition_str = ", ".join(column_definitions)
         sql = f"CREATE TABLE {table_name}({column_definition_str})"
-        logger.debug(sql)
-        self.execute(sql, self.cursor)
+        with self.connection:
+            self.execute(sql, self.cursor)
 
     def sql_drop_table(self, table_name: str) -> None:
         logger.info("Dropping table %s", table_name)
         sql: str = f"DROP TABLE IF EXISTS {table_name}"
-        logger.debug(sql)
-        self.execute(sql, self.cursor)
+        with self.connection:
+            self.execute(sql, self.cursor)
 
     def get_field_type(self, field: FieldInfo) -> Any:
         annotation = field.annotation
@@ -124,8 +124,16 @@ class SQLiteBackend:
 
     def insert_item(self, table_name: str, params: dict) -> tuple | None:
         sql = self.sql_insert_row(table_name, list(params.keys()))
-        res = self.execute(sql, self.cursor, params)
-        return res.fetchone()
+        with self.connection:
+            res = self.execute(sql, self.cursor, self._clean_params(params))
+            return res.fetchone()
+
+    def _clean_params(self, params: dict) -> dict:
+        new_params = params.copy()
+        for key, v in params.items():
+            if isinstance(v, decimal.Decimal):
+                new_params[key] = str(v)
+        return new_params
 
     def sql_insert_row(self, table_name: str, column_names: list[str]) -> str:
         column_names_str = ", ".join(column_names)
@@ -135,6 +143,28 @@ class SQLiteBackend:
             f"INSERT INTO {table_name}({column_names_str}) VALUES({named_placeholders}) RETURNING {column_names_str}"
         )
         return sql
+
+    def update_item(self, table_name: str, params: dict, filters: dict) -> tuple | None:
+        sql: str = self.sql_update_row(table_name, params, filters)
+        with self.connection:
+            res = self.execute(sql, self.cursor, self._clean_params(params | filters))
+            return res.fetchall()
+
+    def sql_update_row(self, table_name, params: dict, filters: dict) -> str:
+        column_name_list: str = ", ".join(
+            f"{column} = :{column}" for column in params.keys()
+        )
+        where_sql: str = self._get_where_sql(filters)
+        return f"UPDATE {table_name} SET {column_name_list}{where_sql}"
+
+    def _get_where_sql(self, filters: dict) -> str:
+        if not filters:
+            return ""
+        joined_filters: str = " AND ".join(
+            f"{field} = :{field}" for field in filters.keys()
+        )
+        filter_str = f" WHERE {joined_filters}"
+        return filter_str
 
     def __del__(self, *args, **kwargs):
         logger.debug("Closing connection to SQLite '%s' database", self.database_path)
