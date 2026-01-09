@@ -276,3 +276,29 @@ def test_update(db_connection: Connection):
     m1.save()
     m1 = Movie.get(id=m1_id)
     assert m1.is_published is False
+
+
+def test_update_without_pk(db_connection: Connection):
+    class Movie(Model):
+        table_name: ClassVar[str] = "test_movie_creation"
+        title: str
+        year: int
+        score: float
+        is_published: bool
+        description: str | None = None
+        budget: decimal.Decimal
+
+    Movie.create_model()
+    m1 = Movie(
+        title="Movie 1",
+        year=1997,
+        score=7.8,
+        is_published=True,
+        budget=decimal.Decimal("500.01"),
+    )
+    m1.save()
+    m1.title = "New Movie title"
+    m1.save()
+    m2 = Movie.get(title="New Movie title")
+    assert m2.title == "New Movie title"
+    assert Movie.get(title="Movie 1")

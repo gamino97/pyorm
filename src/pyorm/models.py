@@ -51,7 +51,7 @@ class Model(BaseModel):
     @classmethod
     def filter(cls: type[T], **kwargs) -> list[T]:
         ModelOptional: T = make_fields_optional(cls)(**kwargs)
-        query_fields = list(cls.model_fields.keys())
+        query_fields = list(cls.__pydantic_fields__.keys())
         res = Database.get_backend().get_many(
             cls.table_name,
             ModelOptional.model_dump(exclude_unset=True),
@@ -79,27 +79,25 @@ class Model(BaseModel):
 
     def save(self) -> None:
         pk_field_name: str = self.get_pk_field_name()
-        if pk_field_name:
-            pk: Any | None = getattr(self, pk_field_name, None)
-            model_data: dict[str, Any] = self.model_dump(exclude_computed_fields=True)
-            if pk is None:  # Create new row if pk is not set
-                res: tuple[Any] | None = Database.get_backend().insert_item(
-                    self.table_name, model_data
-                )
-                if res is not None:
-                    model = self.model_validate(
-                        {attr: value for attr, value in zip(model_data.keys(), res)}
-                    )
-                    for attribute, value in model.model_dump().items():
-                        setattr(self, attribute, value)
-                    self.clean_modified_fields()
-                else:
-                    logger.warning("No result was returned after insert")
-                return
+        pk: Any | None = getattr(self, pk_field_name, None)
+        if pk_field_name and pk is not None:
             update_data = {
                 field: getattr(self, field, None) for field in self._modified_fields
             }
             filters = {pk_field_name: pk}
             Database.get_backend().update_item(self.table_name, update_data, filters)
+            self.clean_modified_fields()
+            return
+        model_data: dict[str, Any] = self.model_dump(exclude_computed_fields=True)
+        res: tuple[Any] | None = Database.get_backend().insert_item(
+            self.table_name, model_data
+        )
+        if res is not None:
+            model = self.model_validate(
+                {attr: value for attr, value in zip(model_data.keys(), res)}
+            )
+            for attribute, value in model.model_dump().items():
+                setattr(self, attribute, value)
+            self.clean_modified_fields()
         else:
-            pass
+            logger.warning("No result was returned after insert")

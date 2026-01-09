@@ -58,7 +58,7 @@ class SQLiteBackend:
         self, table_name: str, filter_fields: dict, query_fields: list | None = None
     ):
         query_fields_str = "*"
-        if query_fields_str is not None and query_fields:
+        if query_fields:
             query_fields_str = ", ".join(query_fields)
         filter_str = ""
         if filter_fields:
@@ -70,7 +70,7 @@ class SQLiteBackend:
 
     def sql_create_db(self, table_name: str, fields: dict[str, FieldInfo]):
         logger.debug(f"{table_name=} {fields=}")
-        column_definitions = []
+        column_definitions: list[str] = []
         for field_name, field in fields.items():
             column_definition = self.get_column_definition(field_name, field)
             column_definitions.append(column_definition)
@@ -144,7 +144,7 @@ class SQLiteBackend:
         )
         return sql
 
-    def update_item(self, table_name: str, params: dict, filters: dict) -> tuple | None:
+    def update_item(self, table_name: str, params: dict, filters: dict) -> list:
         sql: str = self.sql_update_row(table_name, params, filters)
         with self.connection:
             res = self.execute(sql, self.cursor, self._clean_params(params | filters))
