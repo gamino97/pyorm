@@ -302,3 +302,77 @@ def test_update_without_pk(db_connection: Connection):
     m2 = Movie.get(title="New Movie title")
     assert m2.title == "New Movie title"
     assert Movie.get(title="Movie 1")
+
+
+def test_delete_item(db_connection: Connection):
+    class Movie(Model):
+        table_name: ClassVar[str] = "test_movie_creation"
+        title: str
+        id: int | None = Field(default=None, json_schema_extra={"primary_key": True})
+        year: int
+        score: float
+        is_published: bool
+        description: str | None = None
+        budget: decimal.Decimal
+
+    Movie.create_model()
+    m1 = Movie(
+        title="Movie title 1",
+        year=1997,
+        score=7.8,
+        is_published=True,
+        budget=decimal.Decimal("500"),
+    )
+    m1.save()
+    cursor = db_connection.cursor()
+    cursor.execute(
+        "SELECT id FROM test_movie_creation where id = ?",
+        (m1.id,),
+    )
+    result = cursor.fetchone()
+    assert len(result) == 1
+    assert result[0] == m1.id
+    m1.delete()
+    cursor.execute(
+        "SELECT id FROM test_movie_creation where id = ?",
+        (m1.id,),
+    )
+    result = cursor.fetchone()
+    assert result is None
+
+
+def test_delete_item_without_pk(db_connection: Connection):
+
+    class Movie(Model):
+        table_name: ClassVar[str] = "test_movie_creation"
+        title: str
+        year: int
+        score: float
+        is_published: bool
+        description: str | None = None
+        budget: decimal.Decimal
+
+    Movie.create_model()
+    m1 = Movie(
+        title="Movie title 1",
+        year=1997,
+        score=7.8,
+        is_published=True,
+        budget=decimal.Decimal("500.01"),
+    )
+    m1.save()
+    cursor = db_connection.cursor()
+    cursor.execute(
+        "SELECT title FROM test_movie_creation where title = ?",
+        (m1.title,),
+    )
+    result = cursor.fetchone()
+    assert len(result) == 1
+    assert result[0] == m1.title
+    m1.delete()
+    cursor.execute(
+        "SELECT title FROM test_movie_creation where title = ?",
+        (m1.title,),
+    )
+    result = cursor.fetchone()
+    assert result is None

@@ -133,6 +133,8 @@ class SQLiteBackend:
         for key, v in params.items():
             if isinstance(v, decimal.Decimal):
                 new_params[key] = str(v)
+            if isinstance(v, bool):
+                new_params[key] = 1 if v else 0
         return new_params
 
     def sql_insert_row(self, table_name: str, column_names: list[str]) -> str:
@@ -160,11 +162,24 @@ class SQLiteBackend:
     def _get_where_sql(self, filters: dict) -> str:
         if not filters:
             return ""
-        joined_filters: str = " AND ".join(
-            f"{field} = :{field}" for field in filters.keys()
-        )
+        joined_filters_list: list[str] = []
+        for field, value in filters.items():
+            if value is None:
+                joined_filters_list.append(f"{field} IS NULL")
+            else:
+                joined_filters_list.append(f"{field} = :{field}")
+        joined_filters: str = " AND ".join(joined_filters_list)
         filter_str = f" WHERE {joined_filters}"
         return filter_str
+
+    def delete_item(self, table_name: str, filters: dict) -> None:
+        sql = self.sql_delete_row(table_name, filters)
+        with self.connection:
+            self.execute(sql, self.cursor, self._clean_params(filters))
+
+    def sql_delete_row(self, table_name, filters: dict) -> str:
+        where_sql = self._get_where_sql(filters)
+        return f"DELETE FROM {table_name}{where_sql}"
 
     def __del__(self, *args, **kwargs):
         logger.debug("Closing connection to SQLite '%s' database", self.database_path)

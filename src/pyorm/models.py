@@ -101,3 +101,15 @@ class Model(BaseModel):
             self.clean_modified_fields()
         else:
             logger.warning("No result was returned after insert")
+
+    def delete(self) -> None:
+        pk_field_name: str = self.get_pk_field_name()
+        pk: Any | None = getattr(self, pk_field_name, None)
+        if pk_field_name and pk is not None:
+            filters = {pk_field_name: pk}
+        else:
+            filters = {
+                field: getattr(self, field, None)
+                for field in self.__pydantic_fields_set__
+            }
+        Database.get_backend().delete_item(self.table_name, filters)
