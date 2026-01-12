@@ -2,11 +2,13 @@ import decimal
 import logging
 import sqlite3
 import types
-from typing import Any, Union, get_args, get_origin
+from typing import Any, Union, get_origin
 
 from pydantic.fields import FieldInfo
 
 from pyorm.utils import is_field_primary_key
+
+from .base import BaseBackend
 
 UnionType = getattr(types, "UnionType", Union)
 NoneType = type(None)
@@ -22,7 +24,11 @@ type_affinities = {
 }
 
 
-class SQLiteBackend:
+class SQLiteBackend(BaseBackend):
+
+    def get_connection(self):
+        return self.connection
+
     def __init__(self, database_path: str, *args, **kwargs):
         logger.debug("Initializing SQLiteBackend in %s", database_path)
         self.database_path = database_path
@@ -37,7 +43,9 @@ class SQLiteBackend:
         logger.debug("Executing %s and params %s", sql, params)
         return cursor.execute(sql, params)
 
-    def get_many(self, table_name, params: dict, query_fields: list | None = None):
+    def get_many(
+        self, table_name, params: dict, query_fields: list | None = None
+    ) -> list[Any]:
         sql = self.sql_select_build(table_name, params, query_fields)
         with self.connection:
             res = self.execute(sql, self.cursor, params)
@@ -53,20 +61,6 @@ class SQLiteBackend:
                 )
             return values
         return rows
-
-    def sql_select_build(
-        self, table_name: str, filter_fields: dict, query_fields: list | None = None
-    ):
-        query_fields_str = "*"
-        if query_fields:
-            query_fields_str = ", ".join(query_fields)
-        filter_str = ""
-        if filter_fields:
-            filters = " AND ".join(
-                f"{field} = :{field}" for field in filter_fields.keys()
-            )
-            filter_str = f" WHERE {filters}"
-        return f"SELECT {query_fields_str} FROM {table_name}{filter_str}"
 
     def sql_create_db(self, table_name: str, fields: dict[str, FieldInfo]):
         logger.debug(f"{table_name=} {fields=}")
@@ -84,22 +78,6 @@ class SQLiteBackend:
         sql: str = f"DROP TABLE IF EXISTS {table_name}"
         with self.connection:
             self.execute(sql, self.cursor)
-
-    def get_field_type(self, field: FieldInfo) -> Any:
-        annotation = field.annotation
-        origin = get_origin(annotation)
-        if origin is None:
-            return field.annotation
-        if self.is_union_type(origin):
-            args = get_args(annotation)
-            if len(args) > 2:
-                raise ValueError("Cannot have a non-optional union as a column")
-            if args[0] is None or args[0] is NoneType:
-                annotation = args[1]
-            else:
-                annotation = args[0]
-        logger.debug("Type of field annotation %s is %s", field.annotation, annotation)
-        return annotation
 
     def get_column_definition(self, name: str, field: FieldInfo) -> str:
         field_type = self.get_field_type(field)
@@ -119,9 +97,6 @@ class SQLiteBackend:
             constraints = f"{constraints} NOT NULL"
         return constraints
 
-    def is_union_type(self, type: type[Any]) -> bool:
-        return type is UnionType or type is Union
-
     def insert_item(self, table_name: str, params: dict) -> tuple | None:
         sql = self.sql_insert_row(table_name, list(params.keys()))
         with self.connection:
@@ -137,49 +112,16 @@ class SQLiteBackend:
                 new_params[key] = 1 if v else 0
         return new_params
 
-    def sql_insert_row(self, table_name: str, column_names: list[str]) -> str:
-        column_names_str = ", ".join(column_names)
-        named_placeholders_list = (f":{placeholder}" for placeholder in column_names)
-        named_placeholders = ", ".join(named_placeholders_list)
-        sql: str = (
-            f"INSERT INTO {table_name}({column_names_str}) VALUES({named_placeholders}) RETURNING {column_names_str}"
-        )
-        return sql
-
     def update_item(self, table_name: str, params: dict, filters: dict) -> list:
         sql: str = self.sql_update_row(table_name, params, filters)
         with self.connection:
             res = self.execute(sql, self.cursor, self._clean_params(params | filters))
             return res.fetchall()
 
-    def sql_update_row(self, table_name, params: dict, filters: dict) -> str:
-        column_name_list: str = ", ".join(
-            f"{column} = :{column}" for column in params.keys()
-        )
-        where_sql: str = self._get_where_sql(filters)
-        return f"UPDATE {table_name} SET {column_name_list}{where_sql}"
-
-    def _get_where_sql(self, filters: dict) -> str:
-        if not filters:
-            return ""
-        joined_filters_list: list[str] = []
-        for field, value in filters.items():
-            if value is None:
-                joined_filters_list.append(f"{field} IS NULL")
-            else:
-                joined_filters_list.append(f"{field} = :{field}")
-        joined_filters: str = " AND ".join(joined_filters_list)
-        filter_str = f" WHERE {joined_filters}"
-        return filter_str
-
     def delete_item(self, table_name: str, filters: dict) -> None:
         sql = self.sql_delete_row(table_name, filters)
         with self.connection:
             self.execute(sql, self.cursor, self._clean_params(filters))
-
-    def sql_delete_row(self, table_name, filters: dict) -> str:
-        where_sql = self._get_where_sql(filters)
-        return f"DELETE FROM {table_name}{where_sql}"
 
     def __del__(self, *args, **kwargs):
         logger.debug("Closing connection to SQLite '%s' database", self.database_path)

@@ -11,7 +11,7 @@ from pyorm.database import Database
 def db_connection(prepare_sqlite_database) -> Generator[Connection, None, None]:
     """Fixture to create an in-memory SQLite database"""
 
-    connection: Connection = Database.get_backend().connection
+    connection: Connection = Database.get_backend().get_connection()
     yield connection  # Provide the connection to the test
 
 
