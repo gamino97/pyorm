@@ -26,4 +26,4 @@ plugins = ['pydantic.mypy']
 [tool.pydantic-mypy]
 init_typed = true
 
-
+[tool.pyrefly]

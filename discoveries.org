@@ -1,0 +1,30 @@
+#+title: Discoveries
+#+author: Carlos Gamino
+
+* Cursor
+It is a mechanism to iterate over a list of results, instead of processing all
+the data at the same time
+
+* Transaction
+Unit of work for the Database, you can commit (save the changes in the DB
+permanently), or rollback. ACID
+
+* Example
+#+begin_src python
+  Users.find(id=1)# -> User <id=1>
+  Users.save() # Must determine when to save new object and when to update an object.
+  Users.delete() # Must delete an object
+#+end_src
+
+* Things to define
+** DONE Configuration
+CLOSED: [2026-01-13 Tue 13:51]
+** DONE Model Mapping
+CLOSED: [2026-01-13 Tue 13:51]
+** DONE Query mapping
+CLOSED: [2026-01-13 Tue 13:51]
+
+* On creation
+When calling Model(), it should substitute the values it passes as kwargs to
+class attributes, so when calling Model(id=1).id we get 1, instead of a Field
+instance.
