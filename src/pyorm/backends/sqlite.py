@@ -44,7 +44,11 @@ class SQLiteBackend(BaseBackend):
         return cursor.execute(sql, params)
 
     def get_many(
-        self, table_name, params: dict, query_fields: list | None = None
+        self,
+        table_name: str,
+        params: dict,
+        query_fields: list | None = None,
+        _limit: int | None = None,
     ) -> list[Any]:
         sql = self.sql_select_build(table_name, params, query_fields)
         with self.connection:

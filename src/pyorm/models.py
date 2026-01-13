@@ -26,8 +26,6 @@ class Model(BaseModel):
         self._modified_fields: list[str] = []
         if self.table_name is None or len(self.table_name) == 0:
             raise Exception("Table name must be defined")
-        # setattr(self, "DoesNotExist", DoesNotExist)
-        # setattr(self, "MultipleObjectsReturned", MultipleObjectsReturned)
 
     @classmethod
     def get_pk_field_name(cls) -> str:
@@ -49,7 +47,7 @@ class Model(BaseModel):
             self._modified_fields.append(name)
 
     @classmethod
-    def filter(cls: type[T], **kwargs) -> list[T]:
+    def filter(cls: type[T], _limit: None | int = None, **kwargs) -> list[T]:
         ModelOptional: T = make_fields_optional(cls)(**kwargs)
         query_fields = list(cls.__pydantic_fields__.keys())
         res = Database.get_backend().get_many(
@@ -62,7 +60,7 @@ class Model(BaseModel):
 
     @classmethod
     def get(cls: type[T], **kwargs) -> T:
-        instances: list[T] = cls.filter(**kwargs)
+        instances: list[T] = cls.filter(**kwargs, _limit=2)
         if len(instances) == 1:
             return instances[0]
         if not instances:

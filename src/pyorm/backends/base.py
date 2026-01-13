@@ -20,23 +20,29 @@ class BaseBackend(abc.ABC):
 
     @abc.abstractmethod
     def get_many(
-        self, table_name, params: dict, query_fields: list | None = None
+        self,
+        table_name: str,
+        params: dict,
+        query_fields: list | None = None,
+        _limit: int | None = None,
     ) -> list[Any]:
         """Get various items from the database"""
 
     def sql_select_build(
-        self, table_name: str, filter_fields: dict, query_fields: list | None = None
+        self,
+        table_name: str,
+        filter_fields: dict,
+        query_fields: list | None = None,
+        _limit: int | None = None,
     ):
         query_fields_str = "*"
         if query_fields:
             query_fields_str = ", ".join(query_fields)
-        filter_str = ""
-        if filter_fields:
-            filters = " AND ".join(
-                f"{field} = :{field}" for field in filter_fields.keys()
-            )
-            filter_str = f" WHERE {filters}"
-        return f"SELECT {query_fields_str} FROM {table_name}{filter_str}"
+        filter_str = self._get_where_sql(filter_fields)
+        limit_str = ""
+        if _limit is not None:
+            limit_str = f" LIMIT {_limit}"
+        return f"SELECT {query_fields_str} FROM {table_name}{filter_str}{limit_str}"
 
     @abc.abstractmethod
     def sql_create_db(self, table_name: str, fields: dict[str, FieldInfo]):
