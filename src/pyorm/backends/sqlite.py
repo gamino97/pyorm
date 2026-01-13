@@ -1,3 +1,4 @@
+import contextlib
 import decimal
 import logging
 import sqlite3
@@ -33,7 +34,6 @@ class SQLiteBackend(BaseBackend):
         logger.debug("Initializing SQLiteBackend in %s", database_path)
         self.database_path = database_path
         self.connection = sqlite3.connect(self.database_path)
-        self.cursor = self.connection.cursor()
 
     def execute(
         self, sql: str, cursor: sqlite3.Cursor, params: dict | list | None = None
@@ -42,6 +42,9 @@ class SQLiteBackend(BaseBackend):
             params = []
         logger.debug("Executing %s and params %s", sql, params)
         return cursor.execute(sql, params)
+
+    def get_cursor(self):
+        return contextlib.closing(self.connection.cursor())
 
     def get_many(
         self,
@@ -52,8 +55,9 @@ class SQLiteBackend(BaseBackend):
     ) -> list[Any]:
         sql = self.sql_select_build(table_name, params, query_fields)
         with self.connection:
-            res = self.execute(sql, self.cursor, params)
-            rows = res.fetchall()
+            with self.get_cursor() as cursor:
+                res = self.execute(sql, cursor, params)
+                rows = res.fetchall()
         if query_fields:
             values = []
             for row in rows:
@@ -73,15 +77,18 @@ class SQLiteBackend(BaseBackend):
             column_definition = self.get_column_definition(field_name, field)
             column_definitions.append(column_definition)
         column_definition_str = ", ".join(column_definitions)
-        sql = f"CREATE TABLE {table_name}({column_definition_str})"
+        sql = f"CREATE TABLE '{table_name}'({column_definition_str})"
+
         with self.connection:
-            self.execute(sql, self.cursor)
+            with self.get_cursor() as cursor:
+                self.execute(sql, cursor)
 
     def sql_drop_table(self, table_name: str) -> None:
         logger.info("Dropping table %s", table_name)
-        sql: str = f"DROP TABLE IF EXISTS {table_name}"
+        sql: str = f"DROP TABLE IF EXISTS '{table_name}'"
         with self.connection:
-            self.execute(sql, self.cursor)
+            with self.get_cursor() as cursor:
+                self.execute(sql, cursor)
 
     def get_column_definition(self, name: str, field: FieldInfo) -> str:
         field_type = self.get_field_type(field)
@@ -104,8 +111,9 @@ class SQLiteBackend(BaseBackend):
     def insert_item(self, table_name: str, params: dict) -> tuple | None:
         sql = self.sql_insert_row(table_name, list(params.keys()))
         with self.connection:
-            res = self.execute(sql, self.cursor, self._clean_params(params))
-            return res.fetchone()
+            with self.get_cursor() as cursor:
+                res = self.execute(sql, cursor, self._clean_params(params))
+                return res.fetchone()
 
     def _clean_params(self, params: dict) -> dict:
         new_params = params.copy()
@@ -116,18 +124,19 @@ class SQLiteBackend(BaseBackend):
                 new_params[key] = 1 if v else 0
         return new_params
 
-    def update_item(self, table_name: str, params: dict, filters: dict) -> list:
+    def update_item(self, table_name: str, params: dict, filters: dict) -> int:
         sql: str = self.sql_update_row(table_name, params, filters)
         with self.connection:
-            res = self.execute(sql, self.cursor, self._clean_params(params | filters))
-            return res.fetchall()
+            with self.get_cursor() as cursor:
+                res = self.execute(sql, cursor, self._clean_params(params | filters))
+                return res.rowcount
 
     def delete_item(self, table_name: str, filters: dict) -> None:
         sql = self.sql_delete_row(table_name, filters)
         with self.connection:
-            self.execute(sql, self.cursor, self._clean_params(filters))
+            with self.get_cursor() as cursor:
+                self.execute(sql, cursor, self._clean_params(filters))
 
     def __del__(self, *args, **kwargs):
         logger.debug("Closing connection to SQLite '%s' database", self.database_path)
-        self.cursor.close()
         self.connection.close()

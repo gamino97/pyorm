@@ -78,12 +78,16 @@ class Model(BaseModel):
     def save(self) -> None:
         pk_field_name: str = self.get_pk_field_name()
         pk: Any | None = getattr(self, pk_field_name, None)
-        if pk_field_name and pk is not None:
+        if pk_field_name and pk is not None and len(self._modified_fields) > 0:
             update_data = {
                 field: getattr(self, field, None) for field in self._modified_fields
             }
             filters = {pk_field_name: pk}
-            Database.get_backend().update_item(self.table_name, update_data, filters)
+            rows = Database.get_backend().update_item(
+                self.table_name, update_data, filters
+            )
+            if rows <= 0:
+                raise DoesNotExist
             self.clean_modified_fields()
             return
         model_data: dict[str, Any] = self.model_dump(exclude_computed_fields=True)

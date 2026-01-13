@@ -42,7 +42,7 @@ class BaseBackend(abc.ABC):
         limit_str = ""
         if _limit is not None:
             limit_str = f" LIMIT {_limit}"
-        return f"SELECT {query_fields_str} FROM {table_name}{filter_str}{limit_str}"
+        return f"SELECT {query_fields_str} FROM '{table_name}'{filter_str}{limit_str}"
 
     @abc.abstractmethod
     def sql_create_db(self, table_name: str, fields: dict[str, FieldInfo]):
@@ -87,20 +87,21 @@ class BaseBackend(abc.ABC):
         named_placeholders_list = (f":{placeholder}" for placeholder in column_names)
         named_placeholders = ", ".join(named_placeholders_list)
         sql: str = (
-            f"INSERT INTO {table_name}({column_names_str}) VALUES({named_placeholders}) RETURNING {column_names_str}"  # noqa: E501
+            f"INSERT INTO '{table_name}'({column_names_str}) VALUES({named_placeholders}) RETURNING {column_names_str}"  # noqa: E501
         )
         return sql
 
     @abc.abstractmethod
-    def update_item(self, table_name: str, params: dict, filters: dict) -> list:
-        """Get SQL update statement, and execute it in the database"""
+    def update_item(self, table_name: str, params: dict, filters: dict) -> int:
+        """Get SQL update statement, and execute it in the database
+        Return the rows updated"""
 
     def sql_update_row(self, table_name, params: dict, filters: dict) -> str:
         column_name_list: str = ", ".join(
             f"{column} = :{column}" for column in params.keys()
         )
         where_sql: str = self._get_where_sql(filters)
-        return f"UPDATE {table_name} SET {column_name_list}{where_sql}"
+        return f"UPDATE '{table_name}' SET {column_name_list}{where_sql}"
 
     def _get_where_sql(self, filters: dict) -> str:
         if not filters:
@@ -121,4 +122,4 @@ class BaseBackend(abc.ABC):
 
     def sql_delete_row(self, table_name, filters: dict) -> str:
         where_sql = self._get_where_sql(filters)
-        return f"DELETE FROM {table_name}{where_sql}"
+        return f"DELETE FROM '{table_name}'{where_sql}"

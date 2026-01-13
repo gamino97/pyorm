@@ -93,7 +93,7 @@ def test_drop_table(db_connection: Connection):
 
 def test_insert_table(db_connection: Connection):
     class Movie(Model):
-        table_name: ClassVar[str] = "test_movie_creation"
+        table_name: ClassVar[str] = "order"
         title: str
         id: int | None = Field(default=None, json_schema_extra={"primary_key": True})
         year: int
@@ -118,7 +118,7 @@ def test_insert_table(db_connection: Connection):
     assert m1.budget == decimal.Decimal("500")
     cursor = db_connection.cursor()
     cursor.execute(
-        "SELECT id, title, year, score, is_published FROM test_movie_creation where id = ?",
+        "SELECT id, title, year, score, is_published FROM 'order' where id = ?",
         (m1.id,),
     )
     result = cursor.fetchone()
@@ -137,7 +137,7 @@ def test_insert_table(db_connection: Connection):
     )
     m2.save()
     cursor.execute(
-        "SELECT id, title, year, score, is_published FROM test_movie_creation where id = ?",
+        "SELECT id, title, year, score, is_published FROM 'order' where id = ?",
         (m2.id,),
     )
     result = cursor.fetchone()
@@ -276,6 +276,15 @@ def test_update(db_connection: Connection):
     m1.save()
     m1 = Movie.get(id=m1_id)
     assert m1.is_published is False
+    m1 = Movie(
+        id=800,
+        title="Movie 1",
+        year=1997,
+        score=7.8,
+        is_published=True,
+        budget=decimal.Decimal("500.01"),
+    )
+    m1.save()
 
 
 def test_update_without_pk(db_connection: Connection):
